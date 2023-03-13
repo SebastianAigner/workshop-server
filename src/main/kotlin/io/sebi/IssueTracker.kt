@@ -1,5 +1,8 @@
 package io.sebi
 
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.serialization.Serializable
 
 val issueTracker = IssueTracker()
@@ -22,9 +25,8 @@ data class Issue(val id: IssueId, val title: String, val status: IssueStatus)
 value class IssueId(val id: Int)
 
 class IssueTracker {
-
-    val comments = mapOf<IssueId, List<Comment>>(
-        IssueId(0) to listOf(
+    val comments = mutableMapOf<IssueId, MutableList<Comment>>(
+        IssueId(0) to mutableListOf(
             Comment("sebi_io", "Then what am I looking at? 🤨")
         )
     )
@@ -41,6 +43,21 @@ class IssueTracker {
 
     fun commentsForId(issueId: IssueId): List<Comment> {
         return comments[issueId] ?: listOf()
+    }
+
+
+    // For now, this just provides an "ad hoc" view of what's going on without any guarantees about completeness of the log you receive
+    private val _issueEvents = MutableSharedFlow<IssueEvent>(onBufferOverflow = BufferOverflow.DROP_OLDEST, replay = 1)
+    val issueEvents = _issueEvents.asSharedFlow()
+
+    // this function seems very much not thread safe
+    fun addComment(issueId: IssueId, comment: Comment) {
+        val issue = allIssues().firstOrNull { it.id == issueId } ?: return
+        val allComments = comments.getOrPut(issue.id) { mutableListOf() }
+        allComments += comment
+        comments[issueId] = allComments
+        _issueEvents.tryEmit(IssueEvent(IssueEventType.CREATE, issueId, comment))
+        println("Added $comment")
     }
 }
 

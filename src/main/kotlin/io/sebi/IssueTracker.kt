@@ -43,3 +43,17 @@ class IssueTracker {
         return comments[issueId] ?: listOf()
     }
 }
+
+@Serializable
+enum class IssueEventType {
+    CREATE
+}
+
+@Serializable
+class IssueEvent(val type: IssueEventType, val forIssue: IssueId, val comment: Comment)
+
+fun createRandomCommentEvent(): IssueEvent {
+    val author = listOf("seb", "marie", "ysl", "fred").random()
+    val text = listOf("Wow!", "Great!", "+1", "Why on earth would anyone want this?").random()
+    return IssueEvent(IssueEventType.CREATE, issueTracker.allIssues().random().id, Comment(author, text))
+}

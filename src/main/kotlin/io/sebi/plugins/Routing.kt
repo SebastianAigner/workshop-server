@@ -2,33 +2,53 @@ package io.sebi.plugins
 
 import io.ktor.http.*
 import io.ktor.server.application.*
+import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import io.sebi.Comment
 import io.sebi.IssueId
-import io.sebi.issueTracker
+import io.sebi.IssueTracker
 import kotlinx.coroutines.delay
+import kotlinx.serialization.Serializable
 import kotlin.time.Duration.Companion.seconds
 
-fun Application.configureRouting() {
+@Serializable
+data class IssueCreateRequest(val title: String, val author: String)
+
+fun Application.configureRouting(issueTracker: IssueTracker) {
     routing {
         get("/") {
             call.respondText("Hello World!")
         }
 
-        route("issue") {
-            // Endpoint to simulate that parallel requests are faster than sequential
-            get("{id}/comments") {
-                val id = call.parameters["id"] ?: return@get call.respond(HttpStatusCode.BadRequest)
-                val intId = id.toIntOrNull() ?: return@get call.respond(HttpStatusCode.BadRequest)
-                delay(500)
-                call.respond(issueTracker.commentsForId(IssueId(intId)))
-            }
-        }
-        // Endpoint to simulate single slow request
         route("issues") {
+            // Endpoint to simulate single slow request
             get {
                 delay(2.seconds)
                 call.respond(issueTracker.allIssues())
+            }
+            post {
+                val issueReq = call.receive<IssueCreateRequest>()
+                val newIssue = issueTracker.addIssue(issueReq.author, issueReq.title)
+                call.respond(newIssue)
+            }
+            // Endpoint to simulate that parallel requests are faster than sequential
+            route("{id}") {
+                route("comments") {
+                    get {
+                        val id = call.parameters["id"] ?: return@get call.respond(HttpStatusCode.BadRequest)
+                        val intId = id.toIntOrNull() ?: return@get call.respond(HttpStatusCode.BadRequest)
+                        delay(500)
+                        call.respond(issueTracker.commentsForId(IssueId(intId)))
+                    }
+                    post {
+                        val id = call.parameters["id"] ?: return@post call.respond(HttpStatusCode.BadRequest)
+                        val intId = id.toIntOrNull() ?: return@post call.respond(HttpStatusCode.BadRequest)
+                        val comment = call.receive<Comment>()
+                        issueTracker.addComment(IssueId(intId), comment)
+                        call.respond(HttpStatusCode.OK)
+                    }
+                }
             }
         }
     }

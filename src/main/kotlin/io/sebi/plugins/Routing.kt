@@ -10,6 +10,7 @@ import io.sebi.IssueId
 import io.sebi.IssueTracker
 import kotlinx.coroutines.delay
 import kotlinx.serialization.Serializable
+import kotlin.random.Random
 import kotlin.time.Duration.Companion.seconds
 
 @Serializable
@@ -33,11 +34,17 @@ fun Application.configureRouting(issueTracker: IssueTracker) {
                 call.respond(newIssue)
             }
             // Endpoint to simulate that parallel requests are faster than sequential
+            // Endpoint to simulate failure states, possibility of retrying operations
             route("{id}") {
+                // ?failure=0.3
                 route("comments") {
                     get {
                         val id = call.parameters["id"] ?: return@get call.respond(HttpStatusCode.BadRequest)
                         val intId = id.toIntOrNull() ?: return@get call.respond(HttpStatusCode.BadRequest)
+                        val failureProbability = call.request.queryParameters["failure"]?.toDouble() ?: 0.0
+                        if (Random.nextDouble() < failureProbability) {
+                            return@get call.respond(HttpStatusCode.InternalServerError)
+                        }
                         delay(500)
                         call.respond(issueTracker.commentsForId(IssueId(intId)))
                     }

@@ -39,8 +39,8 @@ fun Application.configureRouting(issueTracker: IssueTracker) {
                 // ?failure=0.3
                 route("comments") {
                     get {
-                        val id = call.parameters["id"] ?: return@get call.respond(HttpStatusCode.BadRequest)
-                        val intId = id.toIntOrNull() ?: return@get call.respond(HttpStatusCode.BadRequest)
+                        val intId =
+                            call.parameters["id"]?.toIntOrNull() ?: return@get call.respond(HttpStatusCode.BadRequest)
                         val failureProbability = call.request.queryParameters["failure"]?.toDouble() ?: 0.0
                         if (Random.nextDouble() < failureProbability) {
                             return@get call.respond(HttpStatusCode.InternalServerError)
@@ -49,8 +49,8 @@ fun Application.configureRouting(issueTracker: IssueTracker) {
                         call.respond(issueTracker.commentsForId(IssueId(intId)))
                     }
                     post {
-                        val id = call.parameters["id"] ?: return@post call.respond(HttpStatusCode.BadRequest)
-                        val intId = id.toIntOrNull() ?: return@post call.respond(HttpStatusCode.BadRequest)
+                        val intId =
+                            call.parameters["id"]?.toIntOrNull() ?: return@post call.respond(HttpStatusCode.BadRequest)
                         val comment = call.receive<Comment>()
                         issueTracker.addComment(IssueId(intId), comment)
                         call.respond(HttpStatusCode.OK)
